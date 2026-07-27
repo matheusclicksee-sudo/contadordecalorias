@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E1116">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Saldo Kcal</title>
+<style>
+:root{
+  --bg:#0E1116; --panel:#161B23; --panel2:#1D242E; --line:#27303C;
+  --text:#E9EDF3; --mut:#8792A2; --acc:#FFA53D; --acc2:#FFC97E;
+  --ok:#4ADE80; --warn:#FBBF24; --bad:#F87171; --r:14px;
+  --mono:ui-monospace,'SF Mono','Cascadia Mono','Roboto Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+  font-size:15px;line-height:1.45;
+  padding-bottom:calc(72px + env(safe-area-inset-bottom));
+}
+.wrap{max-width:520px;margin:0 auto;padding:14px 14px 0}
+header{display:flex;align-items:baseline;justify-content:space-between;padding:6px 2px 14px}
+header h1{font-size:19px;font-weight:700;letter-spacing:.2px}
+header h1 span{color:var(--acc)}
+#hoje-data{color:var(--mut);font-size:12.5px;text-transform:capitalize}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:12px}
+.card h2{font-size:12px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--mut);margin-bottom:10px}
+/* ---- gauge ---- */
+.gauge-box{display:flex;flex-direction:column;align-items:center;padding-top:6px}
+.gauge{position:relative;width:210px;height:210px}
+.gauge svg{transform:rotate(-90deg)}
+.g-track{stroke:var(--panel2)}
+.g-fill{transition:stroke-dasharray .5s ease, stroke .3s}
+.g-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.g-center .big{font-family:var(--mono);font-size:38px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.g-center .of{color:var(--mut);font-size:12.5px;margin-top:4px}
+.chip{display:inline-block;margin-top:12px;padding:4px 12px;border-radius:99px;font-size:12.5px;font-weight:600}
+.chip.ok{background:rgba(74,222,128,.12);color:var(--ok)}
+.chip.warn{background:rgba(251,191,36,.12);color:var(--warn)}
+.chip.bad{background:rgba(248,113,113,.12);color:var(--bad)}
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;width:100%;margin-top:14px}
+.stat{background:var(--panel2);border-radius:10px;padding:8px 6px;text-align:center}
+.stat .v{font-family:var(--mono);font-size:16px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat .l{color:var(--mut);font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;margin-top:2px}
+.pbar-wrap{width:100%;margin-top:12px}
+.pbar-top{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);margin-bottom:5px}
+.pbar-top span:last-child{font-family:var(--mono);color:var(--text);font-variant-numeric:tabular-nums}
+.pbar{height:8px;background:var(--panel2);border-radius:99px;overflow:hidden}
+#pbar-fill{height:100%;width:0;background:#5CA9FF;border-radius:99px;transition:width .4s,background .3s}
+.item .kc small,.pv-item .kc small{display:block;color:var(--mut);font-size:10.5px;font-weight:400}
+/* ---- inputs ---- */
+textarea,input,select{
+  width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+  color:var(--text);font-size:15px;padding:10px 12px;font-family:inherit;outline:none;
+}
+textarea:focus,input:focus,select:focus{border-color:var(--acc)}
+textarea{resize:none;min-height:64px}
+input::placeholder,textarea::placeholder{color:#5B6575}
+label{display:block;font-size:12px;color:var(--mut);margin:10px 0 5px}
+.row{display:flex;gap:8px}
+.row > *{flex:1}
+button{
+  border:0;border-radius:10px;font-size:14.5px;font-weight:600;padding:11px 14px;
+  cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;
+}
+.btn-acc{background:var(--acc);color:#1A1206}
+.btn-acc:active{background:var(--acc2)}
+.btn-ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.btn-ghost:active{background:#252D39}
+.btn-mic.rec{background:rgba(248,113,113,.18);color:var(--bad);border-color:var(--bad)}
+.btn-sm{padding:7px 10px;font-size:13px}
+.icon-btns{display:flex;gap:8px;margin-top:8px}
+.icon-btns button{flex:1}
+/* suggestions */
+#sugestoes{display:none;margin-top:6px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+#sugestoes div{padding:9px 12px;font-size:14px;border-bottom:1px solid var(--line)}
+#sugestoes div:last-child{border-bottom:0}
+#sugestoes div:active{background:#252D39}
+#sugestoes b{color:var(--acc);font-weight:600}
+/* preview */
+#preview{display:none;margin-top:10px;border-top:1px dashed var(--line);padding-top:10px}
+.pv-item{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.pv-item .nm{flex:1;font-size:13.5px}
+.pv-item .nm small{display:block;color:var(--mut);font-size:11.5px}
+.pv-item input{width:74px;text-align:right;padding:7px 8px;font-family:var(--mono);font-size:13.5px}
+.pv-item .kc{font-family:var(--mono);font-size:13.5px;min-width:64px;text-align:right;font-variant-numeric:tabular-nums}
+.pv-bad .nm{color:var(--bad)}
+/* lists */
+.item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item .nm{flex:1;font-size:14px}
+.item .nm small{display:block;color:var(--mut);font-size:11.5px}
+.item .kc{font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.item .kc.burn{color:var(--ok)}
+.del{background:none;border:0;color:#5B6575;font-size:17px;padding:4px 6px;line-height:1}
+.del:active{color:var(--bad)}
+.vazio{color:#5B6575;font-size:13.5px;text-align:center;padding:14px 0}
+/* histórico */
+.bars{display:flex;align-items:flex-end;gap:6px;height:110px;margin:6px 0 4px}
+.bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%}
+.bar .cw{flex:1;width:100%;max-width:34px;position:relative}
+.bar .col{position:absolute;bottom:0;left:0;right:0;border-radius:5px 5px 0 0;background:var(--acc);min-height:2px}
+.bar .gs{position:absolute;left:-3px;right:-3px;border-top:2px dashed #566074;pointer-events:none}
+.bar .dl{font-size:10px;color:var(--mut)}
+.legenda{font-size:11.5px;color:var(--mut);margin-bottom:8px}
+.legenda i{display:inline-block;width:9px;height:9px;background:var(--acc);border-radius:2px;margin-right:4px}
+.legenda s{display:inline-block;width:14px;border-top:2px dashed #566074;vertical-align:middle;margin:0 4px 0 12px;text-decoration:none}
+.h-dia{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.h-dia:last-child{border-bottom:0}
+.h-dia .d{color:var(--mut)}
+.h-dia .n{font-family:var(--mono);font-variant-numeric:tabular-nums}
+/* nav */
+nav{
+  position:fixed;bottom:0;left:0;right:0;background:rgba(14,17,22,.92);
+  backdrop-filter:blur(10px);border-top:1px solid var(--line);
+  display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom);z-index:50;
+}
+nav .inner{display:flex;width:100%;max-width:520px}
+nav button{flex:1;background:none;color:var(--mut);border-radius:0;padding:14px 0 12px;font-size:13px;font-weight:600;border-top:2px solid transparent}
+nav button.on{color:var(--acc);border-top-color:var(--acc)}
+.tab{display:none}
+.tab.on{display:block}
+/* modal */
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:flex-end;justify-content:center}
+#modal.on{display:flex}
+#modal .box{background:var(--panel);border:1px solid var(--line);border-radius:16px 16px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));width:100%;max-width:520px}
+#modal h3{font-size:15.5px;margin-bottom:6px}
+#modal p{color:var(--mut);font-size:13.5px;margin-bottom:10px}
+.tmb-view{background:var(--panel2);border-radius:10px;padding:10px 12px;margin-top:12px;font-size:13.5px;color:var(--mut)}
+.tmb-view b{color:var(--text);font-family:var(--mono)}
+.aviso{font-size:12px;color:var(--mut);margin-top:8px;line-height:1.5}
+.perigo{color:var(--bad)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><h1>Saldo<span>Kcal</span></h1><div id="hoje-data"></div></header>
+
+<!-- ===== HOJE ===== -->
+<section id="tab-hoje" class="tab on">
+  <div class="card gauge-box">
+    <div class="gauge">
+      <svg width="210" height="210" viewBox="0 0 210 210">
+        <circle class="g-track" cx="105" cy="105" r="90" fill="none" stroke-width="14"/>
+        <circle id="g-fill" class="g-fill" cx="105" cy="105" r="90" fill="none" stroke-width="14"
+          stroke-linecap="round" stroke="#FFA53D" stroke-dasharray="0 565.5"/>
+      </svg>
+      <div class="g-center">
+        <div class="big" id="g-consumido">0</div>
+        <div class="of" id="g-alvo">de 0 kcal (alvo)</div>
+      </div>
+    </div>
+    <span class="chip warn" id="g-chip">—</span>
+    <div class="stats">
+      <div class="stat"><div class="v" id="st-gasto">0</div><div class="l">Gasto do dia</div></div>
+      <div class="stat"><div class="v" id="st-treino">0</div><div class="l">Treinos</div></div>
+      <div class="stat"><div class="v" id="st-saldo">0</div><div class="l">Saldo</div></div>
+    </div>
+    <div class="pbar-wrap">
+      <div class="pbar-top"><span>Proteína</span><span id="p-num">0 / 0 g</span></div>
+      <div class="pbar"><div id="pbar-fill"></div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Registrar comida</h2>
+    <textarea id="entrada" placeholder="Ex.: 2 ovos, 150g de arroz integral, 1 scoop de whey" autocomplete="off"></textarea>
+    <div id="sugestoes"></div>
+    <div class="icon-btns">
+      <button class="btn-ghost btn-mic" id="btn-voz">🎤 Voz</button>
+      <button class="btn-ghost" id="btn-foto">📷 Rótulo</button>
+      <button class="btn-acc" id="btn-add">Adicionar</button>
+    </div>
+    <div id="preview"></div>
+    <input type="file" id="foto-input" accept="image/*" capture="environment" hidden>
+  </div>
+
+  <div class="card">
+    <h2>Comida de hoje</h2>
+    <div id="lista-comida"><div class="vazio">Nada registrado ainda.</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Treinos de hoje</h2>
+    <div class="row">
+      <select id="treino-tipo"></select>
+      <input type="number" id="treino-min" placeholder="min" inputmode="numeric" style="max-width:86px">
+    </div>
+    <div class="row" id="treino-kcal-row" style="display:none;margin-top:8px">
+      <input type="number" id="treino-kcal" placeholder="kcal gastas" inputmode="numeric">
+    </div>
+    <button class="btn-acc" id="btn-treino" style="width:100%;margin-top:8px">Registrar treino</button>
+    <div id="lista-treino" style="margin-top:6px"></div>
+  </div>
+</section>
+
+<!-- ===== HISTÓRICO ===== -->
+<section id="tab-hist" class="tab">
+  <div class="card">
+    <h2>Últimos 7 dias</h2>
+    <div class="legenda"><i></i>consumido <s></s>gasto do dia</div>
+    <div class="bars" id="hist-bars"></div>
+  </div>
+  <div class="card">
+    <h2>Dia a dia</h2>
+    <div id="hist-lista"><div class="vazio">Sem histórico ainda.</div></div>
+  </div>
+</section>
+
+<!-- ===== PERFIL ===== -->
+<section id="tab-perfil" class="tab">
+  <div class="card">
+    <h2>Seus dados</h2>
+    <div class="row">
+      <div><label>Peso (kg)</label><input type="number" id="p-peso" inputmode="decimal" step="0.1"></div>
+      <div><label>Altura (cm)</label><input type="number" id="p-altura" inputmode="numeric"></div>
+    </div>
+    <div class="row">
+      <div><label>Idade</label><input type="number" id="p-idade" inputmode="numeric"></div>
+      <div><label>Sexo (fórmula TMB)</label><select id="p-sexo"><option value="M">Masculino</option><option value="F">Feminino</option></select></div>
+    </div>
+    <label>Atividade fora dos treinos</label>
+    <select id="p-fator">
+      <option value="1.2">Sedentário (trabalho sentado) — ×1,2</option>
+      <option value="1.3">Leve (anda um pouco no dia) — ×1,3</option>
+      <option value="1.4">Moderado (em pé boa parte do dia) — ×1,4</option>
+      <option value="1.55">Alto (trabalho físico) — ×1,55</option>
+    </select>
+    <label>Meta de saldo diário (kcal)</label>
+    <input type="number" id="p-meta" inputmode="numeric" step="50">
+    <div class="aviso">Negativo = déficit. Ex.: −500/dia ≈ perder ~0,5 kg por semana. 0 = manter peso. Treinos registrados são somados ao gasto automaticamente — não mude o fator acima por causa deles.</div>
+    <label>Meta de proteína (g/dia)</label>
+    <input type="number" id="p-prot" inputmode="numeric" step="5">
+    <div class="tmb-view" id="tmb-view">Preencha os dados para calcular a TMB.</div>
+    <button class="btn-acc" id="btn-perfil" style="width:100%;margin-top:12px">Salvar perfil</button>
+  </div>
+
+  <div class="card">
+    <h2>Alimento personalizado</h2>
+    <label>Nome</label><input type="text" id="c-nome" placeholder="Ex.: Marmita da firma">
+    <div class="row">
+      <div><label>kcal /100 g</label><input type="number" id="c-kcal" inputmode="numeric"></div>
+      <div><label>Prot. (g) /100 g</label><input type="number" id="c-prot" inputmode="decimal"></div>
+      <div><label>Porção padrão (g)</label><input type="number" id="c-porcao" inputmode="numeric" placeholder="opcional"></div>
+    </div>
+    <button class="btn-ghost" id="btn-custom" style="width:100%;margin-top:10px">Salvar alimento</button>
+    <div id="lista-custom" style="margin-top:6px"></div>
+  </div>
+
+  <div class="card">
+    <h2>Dados</h2>
+    <div class="row">
+      <button class="btn-ghost" id="btn-export">Exportar backup</button>
+      <button class="btn-ghost" id="btn-import">Importar</button>
+    </div>
+    <input type="file" id="import-input" accept=".json" hidden>
+    <button class="btn-ghost perigo" id="btn-limpar" style="width:100%;margin-top:8px">Apagar tudo</button>
+    <div class="aviso">Tudo fica salvo só neste aparelho (localStorage). Exporte um backup de vez em quando.</div>
+  </div>
+</section>
+</div>
+
+<nav><div class="inner">
+  <button data-tab="tab-hoje" class="on">Hoje</button>
+  <button data-tab="tab-hist">Histórico</button>
+  <button data-tab="tab-perfil">Perfil</button>
+</div></nav>
+
+<div id="modal"><div class="box">
+  <h3 id="m-titulo"></h3>
+  <p id="m-texto"></p>
+  <div id="m-corpo"></div>
+</div></div>
+<script>
+/* ================= BANCO DE ALIMENTOS =================
+   k = kcal por 100g | u = gramas da porção/unidade | l = nome da porção */
+const DB=[
+{n:"Ovo",k:155,p:13,u:50,l:"unidade"},{n:"Ovo cozido",k:155,p:13,u:50,l:"unidade"},{n:"Ovo frito",k:196,p:14,u:50,l:"unidade"},
+{n:"Ovo mexido",k:166,p:13,u:55,l:"unidade"},{n:"Omelete (2 ovos)",k:170,p:12,u:110,l:"unidade"},
+{n:"Clara de ovo",k:52,p:11,u:33,l:"unidade"},{n:"Whey protein",k:400,p:80,u:30,l:"scoop"},
+{n:"Barra de proteína",k:400,p:33,u:45,l:"unidade"},{n:"Creatina",k:0,p:0,u:5,l:"dose"},
+{n:"Arroz branco cozido",k:128,p:2.5,u:25,l:"colher"},{n:"Arroz integral cozido",k:124,p:2.6,u:25,l:"colher"},
+{n:"Feijão",k:76,p:4.8,u:80,l:"concha"},{n:"Feijão carioca cozido",k:76,p:4.8,u:80,l:"concha"},{n:"Feijão preto cozido",k:77,p:4.5,u:80,l:"concha"},
+{n:"Lentilha cozida",k:93,p:6.3,u:80,l:"concha"},{n:"Grão-de-bico cozido",k:164,p:8.9,u:80,l:"concha"},
+{n:"Soja cozida",k:172,p:17,u:80,l:"concha"},{n:"Proteína de soja (PTS) seca",k:338,p:50,u:30,l:"porção"},
+{n:"Tofu",k:76,p:8,u:80,l:"fatia"},{n:"Hambúrguer vegetal",k:200,p:11,u:90,l:"unidade"},
+{n:"Falafel",k:333,p:13,u:30,l:"unidade"},{n:"Homus",k:166,p:8,u:15,l:"colher"},
+{n:"Edamame",k:122,p:11,u:80,l:"porção"},{n:"Cogumelo champignon",k:22,p:2.1,u:50,l:"porção"},
+{n:"Shimeji refogado",k:60,p:2,u:80,l:"porção"},
+{n:"Pão francês",k:300,p:8,u:50,l:"unidade"},{n:"Pão de forma",k:253,p:9,u:25,l:"fatia"},
+{n:"Pão integral",k:246,p:12,u:25,l:"fatia"},{n:"Pão de queijo",k:335,p:5,u:40,l:"unidade"},
+{n:"Torrada",k:373,p:11,u:8,l:"unidade"},{n:"Tapioca",k:240,p:0.5,u:60,l:"unidade"},
+{n:"Cuscuz de milho",k:113,p:2.2,u:135,l:"fatia"},{n:"Aveia",k:394,p:14,u:15,l:"colher"},
+{n:"Granola",k:471,p:10,u:15,l:"colher"},{n:"Wrap (rap10)",k:315,p:9,u:35,l:"unidade"},
+{n:"Macarrão cozido",k:158,p:5.8,u:110,l:"pegador"},{n:"Molho de tomate",k:35,p:1.2,u:60,l:"concha"},
+{n:"Lasanha",k:165,p:8,u:250,l:"porção"},{n:"Nhoque cozido",k:160,p:4,u:150,l:"porção"},
+{n:"Pizza de mussarela",k:289,p:12,u:125,l:"fatia"},{n:"Pizza de marguerita",k:270,p:11,u:125,l:"fatia"},
+{n:"Batata cozida",k:52,p:1.2,u:90,l:"unidade"},{n:"Batata-doce cozida",k:77,p:0.6,u:100,l:"porção"},
+{n:"Batata frita",k:312,p:3.4,u:100,l:"porção"},{n:"Mandioca cozida",k:125,p:0.6,u:100,l:"porção"},
+{n:"Purê de batata",k:100,p:1.8,u:80,l:"colher"},{n:"Polenta",k:103,p:2,u:100,l:"porção"},
+{n:"Milho cozido",k:96,p:3.2,u:100,l:"espiga"},{n:"Farofa",k:406,p:2,u:25,l:"colher"},
+{n:"Queijo mussarela",k:330,p:22,u:20,l:"fatia"},{n:"Queijo prato",k:360,p:23,u:20,l:"fatia"},
+{n:"Queijo minas frescal",k:264,p:17,u:30,l:"fatia"},{n:"Queijo coalho",k:353,p:22,u:60,l:"espeto"},
+{n:"Ricota",k:140,p:12,u:30,l:"fatia"},{n:"Queijo parmesão",k:453,p:35,u:10,l:"colher"},
+{n:"Requeijão",k:257,p:9,u:20,l:"colher"},{n:"Queijo cottage",k:98,p:11,u:30,l:"colher"},
+{n:"Iogurte natural",k:51,p:4,u:170,l:"pote"},{n:"Iogurte natural desnatado",k:42,p:4.5,u:170,l:"pote"},
+{n:"Iogurte grego",k:130,p:5,u:100,l:"pote"},{n:"Leite integral",k:61,p:3.2,u:200,l:"copo"},
+{n:"Leite desnatado",k:35,p:3.4,u:200,l:"copo"},{n:"Leite de aveia",k:45,p:1,u:200,l:"copo"},
+{n:"Leite de amêndoas",k:24,p:0.5,u:200,l:"copo"},
+{n:"Banana",k:92,p:1.3,u:80,l:"unidade"},{n:"Maçã",k:56,p:0.3,u:130,l:"unidade"},
+{n:"Laranja",k:45,p:1,u:130,l:"unidade"},{n:"Mamão",k:40,p:0.5,u:100,l:"fatia"},
+{n:"Manga",k:64,p:0.7,u:140,l:"unidade"},{n:"Abacate",k:96,p:1.2,u:70,l:"porção"},
+{n:"Morango",k:30,p:0.9,u:12,l:"unidade"},{n:"Uva",k:53,p:0.7,u:8,l:"unidade"},
+{n:"Melancia",k:33,p:0.9,u:150,l:"fatia"},{n:"Melão",k:29,p:0.7,u:150,l:"fatia"},
+{n:"Abacaxi",k:48,p:0.9,u:80,l:"fatia"},{n:"Kiwi",k:51,p:1.1,u:70,l:"unidade"},
+{n:"Pera",k:53,p:0.6,u:130,l:"unidade"},{n:"Tangerina",k:44,p:0.8,u:110,l:"unidade"},{n:"Limão",k:32,p:0.9,u:60,l:"unidade"},
+{n:"Açaí (polpa com xarope)",k:110,p:0.8,u:300,l:"tigela"},
+{n:"Alface",k:15,p:1.4,u:40,l:"porção"},{n:"Rúcula",k:25,p:1.8,u:30,l:"porção"},
+{n:"Tomate",k:15,p:1.1,u:90,l:"unidade"},{n:"Cenoura",k:34,p:1.3,u:60,l:"unidade"},
+{n:"Brócolis cozido",k:25,p:2.1,u:60,l:"porção"},{n:"Couve refogada",k:90,p:2.5,u:40,l:"porção"},
+{n:"Couve-flor cozida",k:23,p:1.9,u:60,l:"porção"},{n:"Abobrinha",k:19,p:1.1,u:70,l:"porção"},
+{n:"Berinjela",k:20,p:1.2,u:70,l:"porção"},{n:"Beterraba",k:49,p:1.9,u:40,l:"porção"},
+{n:"Pepino",k:10,p:0.9,u:60,l:"porção"},{n:"Pimentão",k:21,p:1,u:40,l:"porção"},
+{n:"Vinagrete",k:35,p:0.8,u:30,l:"colher"},{n:"Salada verde",k:15,p:1.3,u:80,l:"prato"},
+{n:"Azeite",k:884,p:0,u:13,l:"colher"},{n:"Óleo",k:884,p:0,u:13,l:"colher"},
+{n:"Manteiga",k:726,p:0.5,u:10,l:"colher"},{n:"Margarina",k:596,p:0,u:10,l:"colher"},
+{n:"Pasta de amendoim",k:588,p:25,u:15,l:"colher"},{n:"Amendoim",k:567,p:26,u:30,l:"punhado"},
+{n:"Castanha de caju",k:570,p:18,u:30,l:"punhado"},{n:"Castanha-do-pará",k:656,p:14,u:4,l:"unidade"},
+{n:"Amêndoas",k:579,p:21,u:30,l:"punhado"},{n:"Nozes",k:654,p:15,u:30,l:"punhado"},
+{n:"Chia",k:486,p:17,u:10,l:"colher"},{n:"Linhaça",k:534,p:18,u:10,l:"colher"},
+{n:"Açúcar",k:387,p:0,u:20,l:"colher"},{n:"Mel",k:309,p:0,u:15,l:"colher"},
+{n:"Doce de leite",k:306,p:5,u:20,l:"colher"},{n:"Creme de avelã",k:539,p:6,u:15,l:"colher"},
+{n:"Chocolate ao leite",k:540,p:7,u:25,l:"pedaço"},{n:"Chocolate 70%",k:570,p:8,u:10,l:"quadrado"},
+{n:"Sorvete",k:207,p:3.5,u:60,l:"bola"},{n:"Bolo simples",k:340,p:5,u:60,l:"fatia"},
+{n:"Biscoito cream cracker",k:432,p:10,u:7,l:"unidade"},{n:"Bolacha recheada",k:472,p:5,u:13,l:"unidade"},
+{n:"Barra de cereal",k:410,p:6,u:22,l:"unidade"},{n:"Pipoca estourada",k:387,p:12,u:25,l:"porção"},
+{n:"Coxinha",k:283,p:9,u:80,l:"unidade"},{n:"Pastel de queijo",k:388,p:9,u:80,l:"unidade"},
+{n:"Esfiha",k:270,p:9,u:65,l:"unidade"},{n:"Pão de açúcar (sonho)",k:337,p:6,u:80,l:"unidade"},
+{n:"Frango grelhado",k:159,p:32,u:100,l:"filé"},{n:"Carne bovina grelhada",k:219,p:33,u:100,l:"porção"},
+{n:"Peixe grelhado",k:130,p:26,u:100,l:"filé"},{n:"Atum em lata",k:118,p:26,u:60,l:"porção"},
+{n:"Café sem açúcar",k:2,p:0,u:50,l:"xícara"},{n:"Café com leite",k:40,p:1.6,u:150,l:"xícara"},
+{n:"Suco de laranja",k:42,p:0.7,u:200,l:"copo"},{n:"Refrigerante",k:42,p:0,u:350,l:"lata"},
+{n:"Refrigerante zero",k:0,p:0,u:350,l:"lata"},{n:"Cerveja",k:43,p:0.5,u:350,l:"lata"},
+{n:"Vinho tinto",k:85,p:0,u:150,l:"taça"},{n:"Água",k:0,p:0,u:250,l:"copo"},
+{n:"Água de coco",k:22,p:0,u:200,l:"copo"},{n:"Isotônico",k:26,p:0,u:500,l:"garrafa"},
+{n:"Quinoa cozida",k:120,p:4.4,u:100,l:"porção"},{n:"Quinoa em grão crua",k:368,p:14,u:100,l:"porção"},
+{n:"Seitan",k:141,p:24,u:100,l:"porção"},{n:"Tempeh",k:192,p:20,u:100,l:"porção"},
+{n:"Leite de soja",k:41,p:2.9,u:200,l:"copo"},{n:"Levedura nutricional",k:350,p:45,u:8,l:"colher"},
+{n:"Whey isolado",k:370,p:85,u:30,l:"scoop"},{n:"Iogurte proteico",k:54,p:9.4,u:160,l:"pote"},
+{n:"Biscoito de arroz",k:387,p:8,u:9,l:"unidade"},{n:"Pão sírio",k:275,p:9,u:50,l:"unidade"},
+{n:"Pão de hambúrguer",k:296,p:9,u:50,l:"unidade"},{n:"Pão de mel",k:370,p:4,u:60,l:"unidade"},
+{n:"Kombucha",k:13,p:0,u:250,l:"copo"}
+];
+/* ===== TACO 4ª ed. (591 alimentos, valores por 100 g; porção padrão 100 g) ===== */
+const TACO=[
+{n:"Arroz integral cozido",k:124,p:2.6},{n:"Arroz integral cru",k:360,p:7.3},{n:"Arroz tipo 1 cozido",k:128,p:2.5},{n:"Arroz tipo 1 cru",k:358,p:7.2},
+{n:"Arroz tipo 2 cozido",k:130,p:2.6},{n:"Arroz tipo 2 cru",k:358,p:7.2},{n:"Aveia flocos crua",k:394,p:13.9},{n:"Biscoito doce maisena",k:443,p:8.1},
+{n:"Biscoito doce recheado com chocolate",k:472,p:6.4},{n:"Biscoito doce recheado com morango",k:471,p:5.7},{n:"Biscoito doce wafer recheado de chocolate",k:502,p:5.6},{n:"Biscoito doce wafer recheado de morango",k:513,p:4.5},
+{n:"Biscoito salgado cream cracker",k:432,p:10.1},{n:"Bolo mistura para",k:419,p:6.2},{n:"Bolo pronto aipim",k:324,p:4.4},{n:"Bolo pronto chocolate",k:410,p:6.2},
+{n:"Bolo pronto coco",k:333,p:5.7},{n:"Bolo pronto milho",k:311,p:4.8},{n:"Canjica branca crua",k:358,p:7.2},{n:"Canjica com leite integral",k:112,p:2.4},
+{n:"Cereais milho flocos com sal",k:370,p:7.3},{n:"Cereais milho flocos sem sal",k:363,p:6.9},{n:"Cereais mingau milho infantil",k:394,p:6.4},{n:"Cereais mistura para vitamina trigo cevada e aveia",k:381,p:8.9},
+{n:"Cereal matinal milho",k:365,p:7.2},{n:"Cereal matinal milho açúcar",k:377,p:4.7},{n:"Creme de arroz pó",k:386,p:7},{n:"Creme de milho pó",k:333,p:4.8},
+{n:"Curau milho verde",k:78,p:2.4},{n:"Curau milho verde mistura para",k:402,p:2.2},{n:"Farinha de arroz enriquecida",k:363,p:1.3},{n:"Farinha de centeio integral",k:336,p:12.5},
+{n:"Farinha de milho amarela",k:351,p:7.2},{n:"Farinha de rosca",k:371,p:11.4},{n:"Farinha de trigo",k:360,p:9.8},{n:"Farinha láctea de cereais",k:415,p:11.9},
+{n:"Lasanha massa fresca cozida",k:164,p:5.8},{n:"Lasanha massa fresca crua",k:220,p:7},{n:"Macarrão instantâneo",k:436,p:8.8},{n:"Macarrão trigo cru",k:371,p:10},
+{n:"Macarrão trigo cru com ovos",k:371,p:10.3},{n:"Milho amido cru",k:361,p:0.6},{n:"Milho fubá cru",k:353,p:7.2},{n:"Milho verde cru",k:138,p:6.6},
+{n:"Milho verde enlatado drenado",k:98,p:3.2},{n:"Mingau tradicional pó",k:373,p:0.6},{n:"Pamonha barra para cozimento pré-cozida",k:171,p:2.6},{n:"Pão aveia forma",k:343,p:12.3},
+{n:"Pão de soja",k:309,p:11.3},{n:"Pão glúten forma",k:253,p:12},{n:"Pão milho forma",k:292,p:8.3},{n:"Pão trigo forma integral",k:253,p:9.4},
+{n:"Pão trigo francês",k:300,p:8},{n:"Pão trigo sovado",k:311,p:8.4},{n:"Pastel de carne cru",k:289,p:10.7},{n:"Pastel de carne frito",k:388,p:10.1},
+{n:"Pastel de queijo cru",k:308,p:9.9},{n:"Pastel de queijo frito",k:422,p:8.7},{n:"Pastel massa crua",k:310,p:6.9},{n:"Pastel massa frita",k:570,p:6},
+{n:"Pipoca com óleo de soja sem sal",k:448,p:9.9},{n:"Polenta pré-cozida",k:103,p:2.3},{n:"Torrada pão francês",k:377,p:10.5},{n:"Abóbora cabotian cozida",k:48,p:1.4},
+{n:"Abóbora cabotian crua",k:39,p:1.7},{n:"Abóbora menina brasileira crua",k:14,p:0.6},{n:"Abóbora moranga crua",k:12,p:1},{n:"Abóbora moranga refogada",k:29,p:0.4},
+{n:"Abóbora pescoço crua",k:24,p:0.7},{n:"Abobrinha italiana cozida",k:15,p:1.1},{n:"Abobrinha italiana crua",k:19,p:1.1},{n:"Abobrinha italiana refogada",k:24,p:1.1},
+{n:"Abobrinha paulista crua",k:31,p:0.6},{n:"Acelga crua",k:21,p:1.4},{n:"Agrião cru",k:17,p:2.7},{n:"Aipo cru",k:19,p:0.8},
+{n:"Alface americana crua",k:9,p:0.6},{n:"Alface crespa crua",k:11,p:1.3},{n:"Alface lisa crua",k:14,p:1.7},{n:"Alface roxa crua",k:13,p:0.9},
+{n:"Alfavaca crua",k:29,p:2.7},{n:"Alho cru",k:113,p:7},{n:"Alho-poró cru",k:32,p:1.4},{n:"Almeirão cru",k:18,p:1.8},
+{n:"Almeirão refogado",k:65,p:1.7},{n:"Batata baroa cozida",k:80,p:0.9},{n:"Batata baroa crua",k:101,p:1},{n:"Batata doce cozida",k:77,p:0.6},
+{n:"Batata doce crua",k:118,p:1.3},{n:"Batata frita tipo chips industrializada",k:543,p:5.6},{n:"Batata inglesa cozida",k:52,p:1.2},{n:"Batata inglesa crua",k:64,p:1.8},
+{n:"Batata inglesa frita",k:267,p:5},{n:"Batata inglesa sauté",k:68,p:1.3},{n:"Berinjela cozida",k:19,p:0.7},{n:"Berinjela crua",k:20,p:1.2},
+{n:"Beterraba cozida",k:32,p:1.3},{n:"Beterraba crua",k:49,p:1.9},{n:"Biscoito polvilho doce",k:438,p:1.3},{n:"Brócolis cozido",k:25,p:2.1},
+{n:"Brócolis cru",k:25,p:3.6},{n:"Cará cozido",k:78,p:1.5},{n:"Cará cru",k:96,p:2.3},{n:"Caruru cru",k:34,p:3.2},
+{n:"Catalonha crua",k:24,p:1.9},{n:"Catalonha refogada",k:63,p:1.9},{n:"Cebola crua",k:39,p:1.7},{n:"Cebolinha crua",k:20,p:1.9},
+{n:"Cenoura cozida",k:30,p:0.8},{n:"Cenoura crua",k:34,p:1.3},{n:"Chicória crua",k:14,p:1.1},{n:"Chuchu cozido",k:19,p:0.4},
+{n:"Chuchu cru",k:17,p:0.7},{n:"Coentro folhas desidratadas",k:309,p:20.9},{n:"Couve manteiga crua",k:27,p:2.9},{n:"Couve manteiga refogada",k:90,p:1.7},
+{n:"Couve-flor crua",k:23,p:1.9},{n:"Couve-flor cozida",k:19,p:1.2},{n:"Espinafre Nova Zelândia cru",k:16,p:2},{n:"Espinafre Nova Zelândia refogado",k:67,p:2.7},
+{n:"Farinha de mandioca crua",k:361,p:1.6},{n:"Farinha de mandioca torrada",k:365,p:1.2},{n:"Farinha de puba",k:360,p:1.6},{n:"Fécula de mandioca",k:331,p:0.5},
+{n:"Feijão broto cru",k:39,p:4.2},{n:"Inhame cru",k:97,p:2.1},{n:"Jiló cru",k:27,p:1.4},{n:"Jurubeba crua",k:126,p:4.4},
+{n:"Mandioca cozida",k:125,p:0.6},{n:"Mandioca crua",k:151,p:1.1},{n:"Mandioca farofa temperada",k:406,p:2.1},{n:"Mandioca frita",k:300,p:1.4},
+{n:"Manjericão cru",k:21,p:2},{n:"Maxixe cru",k:14,p:1.4},{n:"Mostarda folha crua",k:18,p:2.1},{n:"Nhoque batata cozido",k:181,p:5.9},
+{n:"Nabo cru",k:18,p:1.2},{n:"Palmito Juçara em conserva",k:23,p:1.8},{n:"Palmito pupunha em conserva",k:29,p:2.5},{n:"Pão de queijo assado",k:363,p:5.1},
+{n:"Pão de queijo cru",k:295,p:3.6},{n:"Pepino cru",k:10,p:0.9},{n:"Pimentão amarelo cru",k:28,p:1.2},{n:"Pimentão verde cru",k:21,p:1.1},
+{n:"Pimentão vermelho cru",k:23,p:1},{n:"Polvilho doce",k:351,p:0.4},{n:"Quiabo cru",k:30,p:1.9},{n:"Rabanete cru",k:14,p:1.4},
+{n:"Repolho branco cru",k:17,p:0.9},{n:"Repolho roxo cru",k:31,p:1.9},{n:"Repolho roxo refogado",k:42,p:1.8},{n:"Rúcula crua",k:13,p:1.8},
+{n:"Salsa crua",k:33,p:3.3},{n:"Seleta de legumes enlatada",k:57,p:3.4},{n:"Serralha crua",k:30,p:2.7},{n:"Taioba crua",k:34,p:2.9},
+{n:"Tomate com semente cru",k:15,p:1.1},{n:"Tomate extrato",k:61,p:2.4},{n:"Tomate molho industrializado",k:38,p:1.4},{n:"Tomate purê",k:28,p:1.4},
+{n:"Tomate salada",k:21,p:0.8},{n:"Vagem crua",k:25,p:1.8},{n:"Abacate cru",k:96,p:1.2},{n:"Abacaxi cru",k:48,p:0.9},
+{n:"Abacaxi polpa congelada",k:31,p:0.5},{n:"Abiu cru",k:62,p:0.8},{n:"Açaí polpa com xarope de guaraná e glucose",k:110,p:0.7},{n:"Açaí polpa congelada",k:58,p:0.8},
+{n:"Acerola crua",k:33,p:0.9},{n:"Acerola polpa congelada",k:22,p:0.6},{n:"Ameixa calda enlatada",k:183,p:0.4},{n:"Ameixa crua",k:53,p:0.8},
+{n:"Ameixa em calda enlatada drenada",k:177,p:1},{n:"Atemóia crua",k:97,p:1},{n:"Banana da terra crua",k:128,p:1.4},{n:"Banana doce em barra",k:280,p:2.2},
+{n:"Banana figo crua",k:105,p:1.1},{n:"Banana maçã crua",k:87,p:1.8},{n:"Banana nanica crua",k:92,p:1.4},{n:"Banana ouro crua",k:112,p:1.5},
+{n:"Banana pacova crua",k:78,p:1.2},{n:"Banana prata crua",k:98,p:1.3},{n:"Cacau cru",k:74,p:1},{n:"Cajá-Manga cru",k:46,p:1.3},
+{n:"Cajá polpa congelada",k:26,p:0.6},{n:"Caju cru",k:43,p:1},{n:"Caju polpa congelada",k:37,p:0.5},{n:"Caju suco concentrado envasado",k:45,p:0.4},
+{n:"Caqui chocolate cru",k:71,p:0.4},{n:"Carambola crua",k:46,p:0.9},{n:"Ciriguela crua",k:76,p:1.4},{n:"Cupuaçu cru",k:49,p:1.2},
+{n:"Cupuaçu polpa congelada",k:49,p:0.8},{n:"Figo cru",k:41,p:1},{n:"Figo enlatado em calda",k:184,p:0.6},{n:"Fruta-pão crua",k:67,p:1.1},
+{n:"Goiaba branca com casca crua",k:52,p:0.9},{n:"Goiaba doce em pasta",k:269,p:0.6},{n:"Goiaba doce cascão",k:286,p:0.4},{n:"Goiaba vermelha com casca crua",k:54,p:1.1},
+{n:"Graviola crua",k:62,p:0.8},{n:"Graviola polpa congelada",k:38,p:0.6},{n:"Jabuticaba crua",k:58,p:0.6},{n:"Jaca crua",k:88,p:1.4},
+{n:"Jambo cru",k:27,p:0.9},{n:"Jamelão cru",k:41,p:0.5},{n:"Kiwi cru",k:51,p:1.3},{n:"Laranja baía crua",k:45,p:1},
+{n:"Laranja baía suco",k:37,p:0.7},{n:"Laranja da terra crua",k:51,p:1.1},{n:"Laranja da terra suco",k:41,p:0.7},{n:"Laranja lima crua",k:46,p:1.1},
+{n:"Laranja lima suco",k:39,p:0.7},{n:"Laranja pêra crua",k:37,p:1},{n:"Laranja pêra suco",k:33,p:0.7},{n:"Laranja valência crua",k:46,p:0.8},
+{n:"Laranja valência suco",k:36,p:0.5},{n:"Limão cravo suco",k:14,p:0.3},{n:"Limão galego suco",k:22,p:0.6},{n:"Limão tahiti cru",k:32,p:0.9},
+{n:"Maçã Argentina com casca crua",k:63,p:0.2},{n:"Maçã Fuji com casca crua",k:56,p:0.3},{n:"Macaúba crua",k:404,p:2.1},{n:"Mamão doce em calda drenado",k:196,p:0.2},
+{n:"Mamão Formosa cru",k:45,p:0.8},{n:"Mamão Papaia cru",k:40,p:0.5},{n:"Mamão verde doce em calda drenado",k:209,p:0.3},{n:"Manga Haden crua",k:64,p:0.4},
+{n:"Manga Palmer crua",k:72,p:0.4},{n:"Manga polpa congelada",k:48,p:0.4},{n:"Manga Tommy Atkins crua",k:51,p:0.9},{n:"Maracujá cru",k:68,p:2},
+{n:"Maracujá polpa congelada",k:39,p:0.8},{n:"Maracujá suco concentrado envasado",k:42,p:0.8},{n:"Melancia crua",k:33,p:0.9},{n:"Melão cru",k:29,p:0.7},
+{n:"Mexerica Murcote crua",k:58,p:0.9},{n:"Mexerica Rio crua",k:37,p:0.7},{n:"Morango cru",k:30,p:0.9},{n:"Nêspera crua",k:43,p:0.3},
+{n:"Pequi cru",k:205,p:2.3},{n:"Pêra Park crua",k:61,p:0.2},{n:"Pêra Williams crua",k:53,p:0.6},{n:"Pêssego Aurora cru",k:36,p:0.8},
+{n:"Pêssego enlatado em calda",k:63,p:0.7},{n:"Pinha crua",k:88,p:1.5},{n:"Pitanga crua",k:41,p:0.9},{n:"Pitanga polpa congelada",k:19,p:0.3},
+{n:"Romã crua",k:56,p:0.4},{n:"Tamarindo cru",k:276,p:3.2},{n:"Tangerina Poncã crua",k:38,p:0.8},{n:"Tangerina Poncã suco",k:36,p:0.5},
+{n:"Tucumã cru",k:262,p:2.1},{n:"Umbu cru",k:37,p:0.8},{n:"Umbu polpa congelada",k:34,p:0.5},{n:"Uva Itália crua",k:53,p:0.7},
+{n:"Uva Rubi crua",k:49,p:0.6},{n:"Uva suco concentrado envasado",k:58,p:0},{n:"Azeite de dendê",k:884,p:0},{n:"Azeite de oliva extra virgem",k:884,p:0},
+{n:"Manteiga com sal",k:726,p:0.4},{n:"Manteiga sem sal",k:758,p:0.4},{n:"Margarina com óleo hidrogenado com sal (65% de lipídeos)",k:596,p:0},{n:"Margarina com óleo hidrogenado sem sal (80% de lipídeos)",k:723,p:0},
+{n:"Margarina com óleo interesterificado com sal (65%de lipídeos)",k:594,p:0},{n:"Margarina com óleo interesterificado sem sal (65% de lipídeos)",k:593,p:0},{n:"Óleo de babaçu",k:884,p:0},{n:"Óleo de canola",k:884,p:0},
+{n:"Óleo de girassol",k:884,p:0},{n:"Óleo de milho",k:884,p:0},{n:"Óleo de pequi",k:884,p:0},{n:"Óleo de soja",k:884,p:0},
+{n:"Abadejo filé congelado assado",k:112,p:23.5},{n:"Abadejo filé congelado cozido",k:91,p:19.3},{n:"Abadejo filé congelado cru",k:59,p:13.1},{n:"Abadejo filé congelado grelhado",k:130,p:27.6},
+{n:"Atum conserva em óleo",k:166,p:26.2},{n:"Atum fresco cru",k:118,p:25.7},{n:"Bacalhau salgado cru",k:136,p:29},{n:"Bacalhau salgado refogado",k:140,p:24},
+{n:"Cação posta com farinha de trigo frita",k:208,p:25},{n:"Cação posta cozida",k:116,p:25.6},{n:"Cação posta crua",k:83,p:17.9},{n:"Camarão Rio Grande grande cozido",k:90,p:19},
+{n:"Camarão Rio Grande grande cru",k:47,p:10},{n:"Camarão Sete Barbas sem cabeça com casca frito",k:231,p:18.4},{n:"Caranguejo cozido",k:83,p:18.5},{n:"Corimba cru",k:128,p:17.4},
+{n:"Corimbatá assado",k:261,p:19.9},{n:"Corimbatá cozido",k:239,p:20.1},{n:"Corvina de água doce crua",k:101,p:18.9},{n:"Corvina do mar crua",k:94,p:18.6},
+{n:"Corvina grande assada",k:147,p:26.8},{n:"Corvina grande cozida",k:100,p:23.4},{n:"Dourada de água doce fresca",k:131,p:18.8},{n:"Lambari congelado cru",k:131,p:16.8},
+{n:"Lambari congelado frito",k:327,p:28.4},{n:"Lambari fresco cru",k:152,p:15.7},{n:"Manjuba com farinha de trigo frita",k:344,p:23.4},{n:"Manjuba frita",k:349,p:30.1},
+{n:"Merluza filé assado",k:122,p:26.6},{n:"Merluza filé cru",k:89,p:16.6},{n:"Merluza filé frito",k:192,p:26.9},{n:"Pescada branca crua",k:111,p:16.3},
+{n:"Pescada branca frita",k:223,p:27.4},{n:"Pescada filé com farinha de trigo frito",k:283,p:21.4},{n:"Pescada filé cru",k:107,p:16.6},{n:"Pescada filé frito",k:154,p:28.6},
+{n:"Pescada filé molho escabeche",k:142,p:11.8},{n:"Pescadinha crua",k:76,p:15.5},{n:"Pintado assado",k:192,p:36.5},{n:"Pintado cru",k:91,p:18.6},
+{n:"Pintado grelhado",k:152,p:30.8},{n:"Porquinho cru",k:93,p:20.5},{n:"Salmão filé com pele fresco grelhado",k:229,p:23.9},{n:"Salmão sem pele fresco cru",k:170,p:19.3},
+{n:"Salmão sem pele fresco grelhado",k:243,p:26.1},{n:"Sardinha assada",k:164,p:32.2},{n:"Sardinha conserva em óleo",k:285,p:15.9},{n:"Sardinha frita",k:257,p:33.4},
+{n:"Sardinha inteira crua",k:114,p:21.1},{n:"Tucunaré filé congelado cru",k:88,p:18},{n:"Apresuntado",k:129,p:13.4},{n:"Caldo de carne tablete",k:241,p:7.8},
+{n:"Caldo de galinha tablete",k:251,p:6.3},{n:"Carne bovina acém moído cozido",k:212,p:26.7},{n:"Carne bovina acém moído cru",k:137,p:19.4},{n:"Carne bovina acém sem gordura cozido",k:215,p:27.3},
+{n:"Carne bovina acém sem gordura cru",k:144,p:20.8},{n:"Carne bovina almôndegas cruas",k:189,p:12.3},{n:"Carne bovina almôndegas fritas",k:272,p:18.2},{n:"Carne bovina bucho cozido",k:133,p:21.6},
+{n:"Carne bovina bucho cru",k:137,p:20.5},{n:"Carne bovina capa de contra-filé com gordura crua",k:217,p:19.2},{n:"Carne bovina capa de contra-filé com gordura grelhada",k:312,p:30.7},{n:"Carne bovina capa de contra-filé sem gordura crua",k:131,p:21.5},
+{n:"Carne bovina capa de contra-filé sem gordura grelhada",k:239,p:35.1},{n:"Carne bovina charque cozido",k:263,p:36.4},{n:"Carne bovina charque cru",k:249,p:22.7},{n:"Carne bovina contra-filé à milanesa",k:352,p:20.6},
+{n:"Carne bovina contra-filé de costela cru",k:202,p:19.8},{n:"Carne bovina contra-filé de costela grelhado",k:275,p:29.9},{n:"Carne bovina contra-filé com gordura cru",k:206,p:21.1},{n:"Carne bovina contra-filé com gordura grelhado",k:278,p:32.4},
+{n:"Carne bovina contra-filé sem gordura cru",k:157,p:24},{n:"Carne bovina contra-filé sem gordura grelhado",k:194,p:35.9},{n:"Carne bovina costela assada",k:373,p:28.8},{n:"Carne bovina costela crua",k:358,p:16.7},
+{n:"Carne bovina coxão duro sem gordura cozido",k:217,p:31.9},{n:"Carne bovina coxão duro sem gordura cru",k:148,p:21.5},{n:"Carne bovina coxão mole sem gordura cozido",k:219,p:32.4},{n:"Carne bovina coxão mole sem gordura cru",k:169,p:21.2},
+{n:"Carne bovina cupim assado",k:330,p:28.6},{n:"Carne bovina cupim cru",k:221,p:19.5},{n:"Carne bovina fígado cru",k:141,p:20.7},{n:"Carne bovina fígado grelhado",k:225,p:29.9},
+{n:"Carne bovina filé mingnon sem gordura cru",k:143,p:21.6},{n:"Carne bovina filé mingnon sem gordura grelhado",k:220,p:32.8},{n:"Carne bovina flanco sem gordura cozido",k:196,p:29.4},{n:"Carne bovina flanco sem gordura cru",k:141,p:20},
+{n:"Carne bovina fraldinha com gordura cozida",k:338,p:24.2},{n:"Carne bovina fraldinha com gordura crua",k:221,p:17.6},{n:"Carne bovina lagarto cozido",k:222,p:32.9},{n:"Carne bovina lagarto cru",k:135,p:20.5},
+{n:"Carne bovina língua cozida",k:315,p:21.4},{n:"Carne bovina língua crua",k:215,p:17.1},{n:"Carne bovina maminha crua",k:153,p:20.9},{n:"Carne bovina maminha grelhada",k:153,p:30.7},
+{n:"Carne bovina miolo de alcatra sem gordura cru",k:163,p:21.6},{n:"Carne bovina miolo de alcatra sem gordura grelhado",k:241,p:31.9},{n:"Carne bovina músculo sem gordura cozido",k:194,p:31.2},{n:"Carne bovina músculo sem gordura cru",k:142,p:21.6},
+{n:"Carne bovina paleta com gordura crua",k:159,p:21.4},{n:"Carne bovina paleta sem gordura cozida",k:194,p:29.7},{n:"Carne bovina paleta sem gordura crua",k:141,p:21},{n:"Carne bovina patinho sem gordura cru",k:133,p:21.7},
+{n:"Carne bovina patinho sem gordura grelhado",k:219,p:35.9},{n:"Carne bovina peito sem gordura cozido",k:338,p:22.2},{n:"Carne bovina peito sem gordura cru",k:259,p:17.6},{n:"Carne bovina picanha com gordura crua",k:213,p:18.8},
+{n:"Carne bovina picanha com gordura grelhada",k:289,p:26.4},{n:"Carne bovina picanha sem gordura crua",k:134,p:21.2},{n:"Carne bovina picanha sem gordura grelhada",k:238,p:31.9},{n:"Carne bovina seca cozida",k:313,p:26.9},
+{n:"Carne bovina seca crua",k:313,p:19.7},{n:"Coxinha de frango frita",k:283,p:9.6},{n:"Croquete de carne cru",k:246,p:12},{n:"Croquete de carne frito",k:347,p:16.9},
+{n:"Empada de frango pré-cozida assada",k:358,p:6.9},{n:"Empada de frango pré-cozida",k:377,p:7.3},{n:"Frango asa com pele crua",k:213,p:18.1},{n:"Frango caipira inteiro com pele cozido",k:243,p:23.9},
+{n:"Frango caipira inteiro sem pele cozido",k:196,p:29.6},{n:"Frango coração cru",k:222,p:12.6},{n:"Frango coração grelhado",k:207,p:22.4},{n:"Frango coxa com pele assada",k:215,p:28.5},
+{n:"Frango coxa com pele crua",k:161,p:17.1},{n:"Frango coxa sem pele cozida",k:167,p:26.9},{n:"Frango coxa sem pele crua",k:120,p:17.8},{n:"Frango fígado cru",k:106,p:17.6},
+{n:"Frango filé à milanesa",k:221,p:28.5},{n:"Frango inteiro com pele cru",k:226,p:16.4},{n:"Frango inteiro sem pele assado",k:187,p:28},{n:"Frango inteiro sem pele cozido",k:170,p:25},
+{n:"Frango inteiro sem pele cru",k:129,p:20.6},{n:"Frango peito com pele assado",k:212,p:33.4},{n:"Frango peito com pele cru",k:149,p:20.8},{n:"Frango peito sem pele cozido",k:163,p:31.5},
+{n:"Frango peito sem pele cru",k:119,p:21.5},{n:"Frango peito sem pele grelhado",k:159,p:32},{n:"Frango sobrecoxa com pele assada",k:260,p:28.7},{n:"Frango sobrecoxa com pele crua",k:255,p:15.5},
+{n:"Frango sobrecoxa sem pele assada",k:233,p:29.2},{n:"Frango sobrecoxa sem pele crua",k:162,p:17.6},{n:"Hambúrguer bovino cru",k:215,p:13.2},{n:"Hambúrguer bovino frito",k:258,p:20},
+{n:"Hambúrguer bovino grelhado",k:210,p:13.2},{n:"Lingüiça frango crua",k:218,p:14.2},{n:"Lingüiça frango frita",k:245,p:18.3},{n:"Lingüiça frango grelhada",k:244,p:18.2},
+{n:"Lingüiça porco crua",k:227,p:16.1},{n:"Lingüiça porco frita",k:280,p:20.5},{n:"Lingüiça porco grelhada",k:296,p:23.2},{n:"Mortadela",k:269,p:12},
+{n:"Peru congelado assado",k:163,p:26.2},{n:"Peru congelado cru",k:94,p:18.1},{n:"Porco bisteca crua",k:164,p:21.5},{n:"Porco bisteca frita",k:311,p:33.7},
+{n:"Porco bisteca grelhada",k:280,p:28.9},{n:"Porco costela assada",k:402,p:30.2},{n:"Porco costela crua",k:256,p:18},{n:"Porco lombo assado",k:210,p:35.7},
+{n:"Porco lombo cru",k:176,p:22.6},{n:"Porco orelha salgada crua",k:258,p:18.5},{n:"Porco pernil assado",k:262,p:32.1},{n:"Porco pernil cru",k:186,p:20.1},
+{n:"Porco rabo salgado cru",k:377,p:15.6},{n:"Presunto com capa de gordura",k:128,p:14.4},{n:"Presunto sem capa de gordura",k:94,p:14.3},{n:"Quibe assado",k:136,p:14.6},
+{n:"Quibe cru",k:109,p:12.4},{n:"Quibe frito",k:254,p:14.9},{n:"Salame",k:398,p:25.8},{n:"Toucinho cru",k:593,p:11.5},
+{n:"Toucinho frito",k:697,p:27.3},{n:"Bebida láctea pêssego",k:55,p:2.1},{n:"Creme de Leite",k:221,p:1.5},{n:"Iogurte natural",k:51,p:4.1},
+{n:"Iogurte natural desnatado",k:41,p:3.8},{n:"Iogurte sabor morango",k:70,p:2.7},{n:"Iogurte sabor pêssego",k:68,p:2.5},{n:"Leite condensado",k:313,p:7.7},
+{n:"Leite de cabra",k:66,p:3.1},{n:"Leite de vaca achocolatado",k:83,p:2.1},{n:"Leite de vaca desnatado pó",k:362,p:34.7},{n:"Leite de vaca integral pó",k:497,p:25.4},
+{n:"Leite fermentado",k:70,p:1.9},{n:"Queijo minas frescal",k:264,p:17.4},{n:"Queijo minas meia cura",k:321,p:21.2},{n:"Queijo mozarela",k:330,p:22.6},
+{n:"Queijo parmesão",k:453,p:35.6},{n:"Queijo pasteurizado",k:303,p:9.4},{n:"Queijo petit suisse morango",k:121,p:5.8},{n:"Queijo prato",k:360,p:22.7},
+{n:"Maria mole",k:257,p:9.6},{n:"Queijo ricota",k:140,p:12.6},{n:"Bebida isotônica sabores variados",k:26,p:0},{n:"Café infusão 10%",k:9,p:0.7},
+{n:"Cana aguardente 1",k:216,p:0},{n:"Cana caldo de",k:65,p:0},{n:"Cerveja pilsen 2",k:41,p:0.6},{n:"Chá erva-doce infusão 5%",k:1,p:0},
+{n:"Chá mate infusão 5%",k:3,p:0},{n:"Chá preto infusão 5%",k:2,p:0},{n:"Coco água de",k:22,p:0},{n:"Refrigerante tipo água tônica",k:31,p:0},
+{n:"Refrigerante tipo cola",k:34,p:0},{n:"Refrigerante tipo guaraná",k:39,p:0},{n:"Refrigerante tipo laranja",k:46,p:0},{n:"Refrigerante tipo limão",k:40,p:0},
+{n:"Omelete de queijo",k:268,p:15.6},{n:"Ovo de codorna inteiro cru",k:177,p:13.7},{n:"Ovo de galinha clara cozida/10minutos",k:59,p:13.4},{n:"Ovo de galinha gema cozida/10minutos",k:353,p:15.9},
+{n:"Ovo de galinha inteiro cozido/10minutos",k:146,p:13.3},{n:"Ovo de galinha inteiro cru",k:143,p:13},{n:"Ovo de galinha inteiro frito",k:240,p:15.6},{n:"Achocolatado pó",k:401,p:4.2},
+{n:"Açúcar cristal",k:387,p:0.3},{n:"Açúcar mascavo",k:369,p:0.8},{n:"Açúcar refinado",k:387,p:0.3},{n:"Chocolate ao leite",k:540,p:7.2},
+{n:"Chocolate ao leite com castanha do Pará",k:559,p:7.4},{n:"Chocolate ao leite dietético",k:557,p:6.9},{n:"Chocolate meio amargo",k:475,p:4.9},{n:"Cocada branca",k:449,p:1.1},
+{n:"Doce de abóbora cremoso",k:199,p:0.9},{n:"Doce de leite cremoso",k:306,p:5.5},{n:"Geléia mocotó natural",k:106,p:2.1},{n:"Glicose de milho",k:292,p:0},
+{n:"Maria mole",k:301,p:3.8},{n:"Maria mole coco queimado",k:307,p:3.9},{n:"Marmelada",k:257,p:0.4},{n:"Mel de abelha",k:309,p:0},
+{n:"Melado",k:297,p:0},{n:"Quindim",k:411,p:4.7},{n:"Rapadura",k:352,p:1},{n:"Café pó torrado",k:419,p:14.7},
+{n:"Capuccino pó",k:417,p:11.3},{n:"Fermento em pó químico",k:90,p:0.5},{n:"Fermento biológico levedura tablete",k:90,p:17},{n:"Gelatina sabores variados pó",k:380,p:8.9},
+{n:"Shoyu",k:61,p:3.3},{n:"Tempero a base de sal",k:21,p:2.7},{n:"Azeitona preta conserva",k:194,p:1.2},{n:"Azeitona verde conserva",k:137,p:0.9},
+{n:"Chantilly spray com gordura vegetal",k:315,p:0.5},{n:"Leite de coco",k:166,p:1},{n:"Maionese tradicional com ovos",k:302,p:0.6},{n:"Acarajé",k:289,p:8.3},
+{n:"Arroz carreteiro",k:154,p:10.8},{n:"Baião de dois arroz e feijão-de-corda",k:136,p:6.2},{n:"Barreado",k:165,p:18.3},{n:"Bife à cavalo com contra filé",k:291,p:23.7},
+{n:"Bolinho de arroz",k:274,p:8},{n:"Camarão à baiana",k:101,p:7.9},{n:"Charuto de repolho",k:78,p:6.8},{n:"Cuscuz de milho cozido com sal",k:113,p:2.2},
+{n:"Cuscuz paulista",k:142,p:2.6},{n:"Cuxá molho",k:80,p:5.6},{n:"Dobradinha",k:125,p:19.8},{n:"Estrogonofe de carne",k:173,p:15},
+{n:"Estrogonofe de frango",k:157,p:17.6},{n:"Feijão tropeiro mineiro",k:152,p:10.2},{n:"Feijoada",k:117,p:8.7},{n:"Frango com açafrão",k:113,p:9.7},
+{n:"Macarrão molho bolognesa",k:120,p:4.9},{n:"Maniçoba",k:134,p:10},{n:"Quibebe",k:86,p:8.6},{n:"Salada de legumes com maionese",k:96,p:1.1},
+{n:"Salada de legumes cozida no vapor",k:35,p:2},{n:"Salpicão de frango",k:148,p:13.9},{n:"Sarapatel",k:123,p:18.5},{n:"Tabule",k:57,p:2},
+{n:"Tacacá",k:47,p:7},{n:"Tapioca com manteiga",k:348,p:0.1},{n:"Tucupi com pimenta-de-cheiro",k:27,p:2.1},{n:"Vaca atolada",k:145,p:5.1},
+{n:"Vatapá",k:255,p:6},{n:"Virado à paulista",k:307,p:10.2},{n:"Yakisoba",k:113,p:7.5},{n:"Amendoim grão cru",k:544,p:27.2},
+{n:"Amendoim torrado salgado",k:606,p:22.5},{n:"Ervilha em vagem",k:88,p:7.5},{n:"Ervilha enlatada drenada",k:74,p:4.6},{n:"Feijão carioca cozido",k:76,p:4.8},
+{n:"Feijão carioca cru",k:329,p:20},{n:"Feijão fradinho cozido",k:78,p:5.1},{n:"Feijão fradinho cru",k:339,p:20.2},{n:"Feijão jalo cozido",k:93,p:6.1},
+{n:"Feijão jalo cru",k:328,p:20.1},{n:"Feijão preto cozido",k:77,p:4.5},{n:"Feijão preto cru",k:324,p:21.3},{n:"Feijão rajado cozido",k:85,p:5.5},
+{n:"Feijão rajado cru",k:326,p:17.3},{n:"Feijão rosinha cozido",k:68,p:4.5},{n:"Feijão rosinha cru",k:337,p:20.9},{n:"Feijão roxo cozido",k:77,p:5.7},
+{n:"Feijão roxo cru",k:331,p:22.2},{n:"Grão-de-bico cru",k:355,p:21.2},{n:"Guandu cru",k:344,p:19},{n:"Lentilha cozida",k:93,p:6.3},
+{n:"Lentilha crua",k:339,p:23.2},{n:"Paçoca amendoim",k:487,p:16},{n:"Pé-de-moleque amendoim",k:503,p:13.2},{n:"Soja farinha",k:404,p:36},
+{n:"Soja extrato solúvel natural fluido",k:39,p:2.4},{n:"Soja extrato solúvel pó",k:459,p:35.7},{n:"Soja queijo (tofu)",k:64,p:6.6},{n:"Tremoço cru",k:381,p:33.6},
+{n:"Tremoço em conserva",k:121,p:11.1},{n:"Amêndoa torrada salgada",k:581,p:18.6},{n:"Castanha-de-caju torrada salgada",k:570,p:18.5},{n:"Castanha-do-Brasil crua",k:643,p:14.5},
+{n:"Coco cru",k:406,p:3.7},{n:"Farinha de mesocarpo de babaçu crua",k:329,p:1.4},{n:"Gergelim semente",k:584,p:21.2},{n:"Linhaça semente",k:495,p:14.1},
+{n:"Pinhão cozido",k:174,p:3},{n:"Pupunha cozida",k:219,p:2.5},{n:"Noz crua",k:620,p:14}
+];
+/* ================= TREINOS (MET) ================= */
+const TREINOS=[
+{n:"Musculação",met:5.0},{n:"Musculação intensa",met:6.0},
+{n:"Corrida leve (8 km/h)",met:8.3},{n:"Corrida (10 km/h)",met:9.8},{n:"Corrida forte (12 km/h)",met:11.5},
+{n:"Muay Thai / luta",met:10.3},{n:"Caminhada",met:3.5},{n:"Bicicleta",met:7.5},
+{n:"Natação",met:8.0},{n:"Funcional / HIIT",met:8.0},{n:"Pular corda",met:11.0},
+{n:"Futebol",met:7.0},{n:"Yoga / alongamento",met:3.0},{n:"Outro (kcal manual)",met:0}
+];
+/* ================= ESTADO ================= */
+const KEY='saldo_kcal_v1';
+let S={perfil:{peso:93,altura:182,idade:null,sexo:'M',fator:1.2,meta:-500,metaProt:175},custom:[],days:{}};
+let memAviso=false;
+function load(){try{const r=localStorage.getItem(KEY);if(r){const p=JSON.parse(r);S=Object.assign(S,p);S.perfil=Object.assign({peso:93,altura:182,idade:null,sexo:'M',fator:1.2,meta:-500,metaProt:175},p.perfil||{});}}catch(e){memAviso=true}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){if(!memAviso){memAviso=true;alert('Atenção: este navegador não permitiu salvar dados localmente. Os registros de hoje funcionam, mas serão perdidos ao fechar. Use Perfil → Exportar backup.')}}}
+function hojeKey(d){d=d||new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function dia(k){k=k||hojeKey();if(!S.days[k])S.days[k]={c:[],t:[]};return S.days[k]}
+
+/* ================= CÁLCULOS ================= */
+function tmb(){const p=S.perfil;if(!p.peso||!p.altura||!p.idade)return 0;
+  return Math.round(10*p.peso+6.25*p.altura-5*p.idade+(p.sexo==='M'?5:-161))}
+function gastoBase(){return Math.round(tmb()*S.perfil.fator)}
+function kcalTreino(met,min){return Math.round(met*3.5*(S.perfil.peso||70)/200*min)}
+function totais(k){const d=dia(k);
+  const cons=d.c.reduce((s,i)=>s+i.kcal,0);
+  const prot=d.c.reduce((s,i)=>s+(i.prot||0),0);
+  const tre=d.t.reduce((s,i)=>s+i.kcal,0);
+  const gasto=gastoBase()+tre;
+  return{cons:Math.round(cons),prot:Math.round(prot),tre:Math.round(tre),gasto,saldo:Math.round(cons-gasto),alvo:gasto+S.perfil.meta}}
+
+/* ================= PARSER ================= */
+function norm(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
+const NUMPAL={'meio':0.5,'meia':0.5,'um':1,'uma':1,'dois':2,'duas':2,'tres':3,'quatro':4,'cinco':5,'seis':6,'sete':7,'oito':8,'nove':9,'dez':10};
+const UNIDADES='colheres?|fatias?|copos?|scoops?|doses?|conchas?|potes?|latas?|tacas?|xicaras?|punhados?|bolas?|pedacos?|quadrados?|barras?|files?|porcoes?|porcao|unidades?|un|espigas?|tigelas?|pratos?|pegadores?|garrafas?|espetos?';
+function stripDim(t){return t.replace(/(z?inh[oa]s?)$/,'').replace(/aez?$/,'ao')}
+function lev(a,b){if(Math.abs(a.length-b.length)>2)return 9;
+  let prev=Array.from({length:b.length+1},(_,i)=>i),cur=[];
+  for(let i=1;i<=a.length;i++){cur=[i];
+    for(let j=1;j<=b.length;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    prev=cur}
+  return prev[b.length]}
+function buscar(q){q=norm(q).replace(/aes\b/g,'ao').replace(/oes\b/g,'ao').replace(/s\b/g,'');if(!q)return[];
+  const toks=q.split(/\s+/).filter(t=>t&&t!=='de'&&t!=='da'&&t!=='do'&&t!=='com');
+  const querCru=toks.includes('cru')||toks.includes('crua');
+  const pen=it=>querCru?0:(/\bcrua?\b/.test(norm(it.n))?1:0);
+  const all=DB.concat(TACO,S.custom);
+  // passo 1: correspondência direta (substring)
+  let res=all.filter(it=>{const nn=norm(it.n).replace(/s\b/g,'');return toks.every(t=>nn.includes(t))});
+  if(res.length){res.sort((a,b)=>pen(a)-pen(b)||a.n.length-b.n.length);return res}
+  // passo 2: tolerante — diminutivos, prefixos e erros de digitação
+  const scored=[];
+  for(const it of all){
+    const dts=norm(it.n).replace(/s\b/g,'').split(/[\s()\/-]+/).filter(Boolean).map(stripDim);
+    let total=0,ok=true;
+    for(const t0 of toks){
+      const t=stripDim(t0);let best=9;
+      for(const d of dts){
+        if(d===t){best=0;break}
+        if(t.length>=4&&(d.startsWith(t)||t.startsWith(d))){best=Math.min(best,1);continue}
+        if(t.length>=4){const L=lev(t,d);if(L<=(t.length>=7?2:1))best=Math.min(best,L+1)}
+      }
+      if(best===9){ok=false;break}
+      total+=best}
+    if(ok)scored.push([total,it])}
+  scored.sort((a,b)=>(a[0]+pen(a[1])*5)-(b[0]+pen(b[1])*5)||a[1].n.length-b[1].n.length);
+  return scored.map(x=>x[1])}
+function plural(l,q){if(q<=1)return l;if(l.endsWith('ção'))return l.slice(0,-3)+'ções';if(l.endsWith('r'))return l+'es';if(l.endsWith('s'))return l;return l+'s'}
+function parseSeg(raw){
+  let s=norm(raw).replace(/\bde\b\s+/g,'de '),qtd=1,grams=null;
+  // palavras-número no início
+  const pw=s.match(/^([a-z]+)\s+(.+)$/);
+  if(pw&&NUMPAL[pw[1]]!==undefined){qtd=NUMPAL[pw[1]];s=pw[2]}
+  // "150g de arroz" / "150 ml leite"
+  let m=s.match(/^(\d+[.,]?\d*)\s*(g|gr|gramas?|ml)\s*(?:de\s+)?(.+)$/);
+  if(m){grams=parseFloat(m[1].replace(',','.'));s=m[3]}
+  else{
+    // "arroz 150g" no fim
+    m=s.match(/^(.+?)\s+(\d+[.,]?\d*)\s*(g|gr|ml)$/);
+    if(m){grams=parseFloat(m[2].replace(',','.'));s=m[1]}
+    else{
+      // "2 ovos" / "2x pão" / "3 fatias de pizza"
+      m=s.match(/^(\d+[.,]?\d*)\s*(?:x\s*)?(.+)$/);
+      if(m){qtd=parseFloat(m[1].replace(',','.'));s=m[2]}
+    }
+  }
+  // remove palavra de unidade ("fatias de pizza" -> "pizza")
+  const um=s.match(new RegExp('^(?:'+UNIDADES+')\\s+(?:de\\s+)?(.+)$'));
+  if(um)s=um[1];
+  const cand=buscar(s);
+  if(!cand.length)return{raw:raw.trim(),ok:false,kcal:0,prot:0};
+  const it=cand[0];
+  if(grams!==null)return{raw:raw.trim(),ok:true,nome:it.n,det:Math.round(grams)+' g',kcal:Math.round(it.k*grams/100),prot:Math.round((it.p||0)*grams/10)/10};
+  const g=qtd*(it.u||100);
+  return{raw:raw.trim(),ok:true,nome:it.n,det:(qtd%1?qtd.toFixed(1).replace('.',','):qtd)+' '+plural(it.l||'porção',qtd)+' (~'+Math.round(g)+' g)',kcal:Math.round(it.k*g/100),prot:Math.round((it.p||0)*g/10)/10};
+}
+function parseTudo(txt){return txt.split(/,|\n|;| e |\+/).map(t=>t.trim()).filter(Boolean).flatMap(seg=>{
+  const r=parseSeg(seg);
+  if(r.ok||!/\scom\s/i.test(seg))return[r];
+  const partes=seg.split(/\scom\s/i).map(x=>x.trim()).filter(Boolean).map(parseSeg);
+  return partes.every(x=>x.ok)?partes:[r]})}
+
+/* ================= UI: refs ================= */
+const $=id=>document.getElementById(id);
+let pendentes=[];
+
+/* ================= RENDER ================= */
+function fmtData(){const d=new Date();return d.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'short'})}
+function render(){
+  $('hoje-data').textContent=fmtData();
+  const t=totais(),p=S.perfil,semTMB=!tmb();
+  $('g-consumido').textContent=t.cons;
+  $('g-alvo').textContent=semTMB?'complete o Perfil':'de '+t.alvo+' kcal (alvo)';
+  $('st-gasto').textContent=t.gasto;$('st-treino').textContent=t.tre;
+  $('st-saldo').textContent=(t.saldo>0?'+':'')+t.saldo;
+  const C=565.5,frac=semTMB||t.alvo<=0?0:Math.min(t.cons/t.alvo,1);
+  const fill=$('g-fill');fill.setAttribute('stroke-dasharray',(C*frac)+' '+C);
+  const chip=$('g-chip');let cor='#FFA53D';
+  if(semTMB){chip.className='chip warn';chip.textContent='Preencha peso, altura e idade no Perfil'}
+  else{
+    const dif=t.cons-t.alvo;
+    if(dif>150){chip.className='chip bad';chip.textContent='Acima do alvo em '+Math.round(dif)+' kcal';cor='#F87171'}
+    else if(dif>=-150){chip.className='chip ok';chip.textContent='Dentro da faixa (alvo ±150)';cor='#4ADE80'}
+    else{chip.className='chip warn';chip.textContent='Faltam '+Math.round(-dif)+' kcal para o alvo'}
+  }
+  fill.setAttribute('stroke',cor);
+  const mp=S.perfil.metaProt||0;
+  $('p-num').textContent=t.prot+' / '+mp+' g';
+  const pf=$('pbar-fill');
+  pf.style.width=(mp?Math.min(t.prot/mp*100,100):0)+'%';
+  pf.style.background=(mp&&t.prot>=mp)?'var(--ok)':'#5CA9FF';
+  // listas
+  const d=dia();
+  $('lista-comida').innerHTML=d.c.length?d.c.map((i,x)=>
+    '<div class="item"><div class="nm">'+esc(i.nome)+(i.det?'<small>'+esc(i.det)+'</small>':'')+'</div><div class="kc">'+i.kcal+' kcal<small>'+(i.prot||0)+' g P</small></div><button class="del" onclick="delC('+x+')">✕</button></div>').join('')
+    :'<div class="vazio">Nada registrado ainda.</div>';
+  $('lista-treino').innerHTML=d.t.length?d.t.map((i,x)=>
+    '<div class="item"><div class="nm">'+esc(i.nome)+(i.det?'<small>'+esc(i.det)+'</small>':'')+'</div><div class="kc burn">−'+i.kcal+' kcal</div><button class="del" onclick="delT('+x+')">✕</button></div>').join('')
+    :'<div class="vazio">Nenhum treino hoje.</div>';
+  renderHist();renderPerfil();renderCustom();
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function delC(i){dia().c.splice(i,1);save();render()}
+function delT(i){dia().t.splice(i,1);save();render()}
+function renderPerfil(){const p=S.perfil;
+  $('p-peso').value=p.peso||'';$('p-altura').value=p.altura||'';$('p-idade').value=p.idade||'';
+  $('p-sexo').value=p.sexo;$('p-fator').value=String(p.fator);$('p-meta').value=p.meta;$('p-prot').value=p.metaProt||'';
+  const b=tmb();
+  $('tmb-view').innerHTML=b?('TMB (Mifflin-St Jeor): <b>'+b+' kcal</b> · Gasto base (×'+String(p.fator).replace('.',',')+'): <b>'+gastoBase()+' kcal</b> · Alvo de consumo hoje: <b>'+(gastoBase()+p.meta)+' kcal</b> + treinos do dia'):'Preencha os dados para calcular a TMB.'}
+function renderCustom(){$('lista-custom').innerHTML=S.custom.length?S.custom.map((c,x)=>
+  '<div class="item"><div class="nm">'+esc(c.n)+'<small>'+c.k+' kcal · '+(c.p||0)+' g P /100 g'+(c.u!==100?' · porção '+c.u+' g':'')+'</small></div><button class="del" onclick="delCustom('+x+')">✕</button></div>').join(''):''}
+function delCustom(i){S.custom.splice(i,1);save();render()}
+function renderHist(){
+  const keys=Object.keys(S.days).sort().slice(-30);
+  // barras 7 dias
+  const last7=[];const d=new Date();
+  for(let i=6;i>=0;i--){const dd=new Date(d);dd.setDate(d.getDate()-i);last7.push(hojeKey(dd))}
+  const dados=last7.map(k=>{const t=S.days[k]?totaisDe(k):{cons:0,gasto:gastoBase()};return{k,cons:t.cons,gasto:t.gasto}});
+  const max=Math.max(...dados.map(x=>Math.max(x.cons,x.gasto)),1);
+  $('hist-bars').innerHTML=dados.map(x=>{
+    const h=Math.round(x.cons/max*100),gl=Math.round(x.gasto/max*100);
+    const dl=x.k.slice(8,10)+'/'+x.k.slice(5,7);
+    return '<div class="bar"><div class="cw"><div class="gs" style="bottom:'+gl+'%"></div><div class="col" style="height:'+Math.max(h,2)+'%"></div></div><div class="dl">'+dl+'</div></div>'}).join('');
+  // lista
+  const rev=keys.slice().reverse().filter(k=>S.days[k]&&(S.days[k].c.length||S.days[k].t.length));
+  $('hist-lista').innerHTML=rev.length?rev.map(k=>{
+    const t=totaisDe(k);const cls=t.saldo>150?'perigo':'';
+    const dt=k.slice(8,10)+'/'+k.slice(5,7);
+    return '<div class="h-dia"><span class="d">'+dt+'</span><span class="n">'+t.cons+'/'+t.gasto+' kcal · '+t.prot+'g P</span><span class="n '+cls+'">'+(t.saldo>0?'+':'')+t.saldo+'</span></div>'}).join('')
+    :'<div class="vazio">Sem histórico ainda.</div>'}
+function totaisDe(k){const d=S.days[k]||{c:[],t:[]};
+  const cons=d.c.reduce((s,i)=>s+i.kcal,0),tre=d.t.reduce((s,i)=>s+i.kcal,0);
+  const prot=d.c.reduce((s,i)=>s+(i.prot||0),0);
+  const gasto=gastoBase()+tre;return{cons:Math.round(cons),prot:Math.round(prot),gasto,saldo:Math.round(cons-gasto)}}
+/* ================= EVENTOS: comida ================= */
+$('btn-add').onclick=()=>{
+  const txt=$('entrada').value.trim();if(!txt)return;
+  pendentes=parseTudo(txt);mostraPreview()};
+function mostraPreview(){
+  const pv=$('preview');
+  if(!pendentes.length){pv.style.display='none';return}
+  pv.innerHTML=pendentes.map((p,i)=>p.ok
+    ?'<div class="pv-item"><div class="nm">'+esc(p.nome)+'<small>'+esc(p.det)+'</small></div><div class="kc">'+p.kcal+' kcal<small>'+(p.prot||0)+' g P</small></div></div>'
+    :'<div class="pv-item pv-bad"><div class="nm">"'+esc(p.raw)+'"<small>não reconhecido — informe:</small></div><input type="number" inputmode="numeric" placeholder="kcal" data-i="'+i+'" class="kcal-manual"><input type="number" inputmode="decimal" placeholder="g P" data-i="'+i+'" class="prot-manual"></div>'
+  ).join('')+'<div class="row" style="margin-top:4px"><button class="btn-ghost btn-sm" id="pv-cancel">Cancelar</button><button class="btn-acc btn-sm" id="pv-ok">Confirmar</button></div>';
+  pv.style.display='block';
+  $('pv-cancel').onclick=()=>{pendentes=[];pv.style.display='none'};
+  $('pv-ok').onclick=()=>{
+    document.querySelectorAll('.kcal-manual').forEach(inp=>{
+      const i=+inp.dataset.i,v=parseFloat(inp.value);
+      if(v>0){const pi=document.querySelector('.prot-manual[data-i="'+i+'"]');
+        pendentes[i].ok=true;pendentes[i].nome=pendentes[i].raw;pendentes[i].det='manual';
+        pendentes[i].kcal=Math.round(v);pendentes[i].prot=Math.round((parseFloat(pi&&pi.value)||0)*10)/10}});
+    const d=dia();
+    pendentes.filter(p=>p.ok).forEach(p=>d.c.push({nome:p.nome,det:p.det,kcal:p.kcal,prot:p.prot||0}));
+    pendentes=[];pv.style.display='none';$('entrada').value='';$('sugestoes').style.display='none';
+    save();render()}}
+/* autocomplete */
+$('entrada').addEventListener('input',()=>{
+  const txt=$('entrada').value;
+  const seg=txt.split(/,|\n|;| e |\+/).pop().trim().replace(/^\d+[.,]?\d*\s*(g|gr|ml|x)?\s*/i,'');
+  const box=$('sugestoes');
+  if(seg.length<2){box.style.display='none';return}
+  const r=buscar(seg).slice(0,6);
+  if(!r.length){box.style.display='none';return}
+  box.innerHTML=r.map(it=>'<div data-n="'+esc(it.n)+'">'+esc(it.n)+' <b>'+Math.round(it.k*(it.u||100)/100)+' kcal/'+(it.l||'porção')+'</b></div>').join('');
+  box.style.display='block';
+  box.querySelectorAll('div').forEach(el=>el.onclick=()=>{
+    const parts=txt.split(/(,|\n|;| e |\+)/);parts[parts.length-1]=' '+el.dataset.n;
+    $('entrada').value=parts.join('').replace(/^\s+/,'');box.style.display='none';$('entrada').focus()})});
+
+/* ================= VOZ ================= */
+let rec=null,gravando=false;
+$('btn-voz').onclick=()=>{
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert('Este navegador não tem reconhecimento de voz. Use o teclado (o microfone do teclado do celular também funciona).');return}
+  if(gravando){rec.stop();return}
+  if(!navigator.onLine){alert('O reconhecimento de voz do navegador precisa de internet (o áudio é processado no servidor do Google). Offline, use o campo de texto.');return}
+  rec=new SR();rec.lang='pt-BR';rec.interimResults=false;rec.continuous=false;
+  gravando=true;$('btn-voz').classList.add('rec');$('btn-voz').textContent='● Ouvindo…';
+  rec.onresult=e=>{const t=e.results[0][0].transcript;
+    $('entrada').value=($('entrada').value?$('entrada').value+', ':'')+t};
+  rec.onerror=e=>{if(e.error!=='aborted')alert('Não consegui ouvir ('+e.error+'). Tente de novo ou digite.')};
+  rec.onend=()=>{gravando=false;$('btn-voz').classList.remove('rec');$('btn-voz').textContent='🎤 Voz'};
+  rec.start()};
+
+/* ================= FOTO DO RÓTULO (OCR) ================= */
+$('btn-foto').onclick=()=>$('foto-input').click();
+$('foto-input').onchange=async e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  if(!window.Tesseract&&!navigator.onLine){
+    alert('A leitura de rótulo baixa o motor de OCR na primeira vez e precisa de internet. Offline: o rótulo já mostra as kcal — digite, ex.: "biscoito 130 kcal" e informe manualmente.');return}
+  modal('Lendo rótulo…','Isso leva alguns segundos.','<div class="vazio">Processando…</div>');
+  try{
+    if(!window.Tesseract)await new Promise((ok,err)=>{const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';s.onload=ok;s.onerror=err;document.head.appendChild(s)});
+    const img=await comprime(f);
+    const r=await Tesseract.recognize(img,'por');
+    const texto=r.data.text||'';
+    const mk=texto.match(/(\d{1,4})\s*[.,]?\d*\s*kcal/i);
+    const mp=texto.match(/por[cç][aã]o[^0-9]{0,25}(\d{1,4})\s*g/i);
+    const mpr=texto.match(/prote[ií]nas?[^0-9]{0,25}(\d{1,3}[.,]?\d?)\s*g/i);
+    if(!mk){modal('Não achei as kcal','O OCR não encontrou "kcal" na foto. Tente foto mais próxima e reta da tabela nutricional, ou informe manualmente.',
+      '<button class="btn-ghost" style="width:100%" onclick="fechaModal()">Fechar</button>');return}
+    const kcalPorcao=parseInt(mk[1]),gPorcao=mp?parseInt(mp[1]):null;
+    const protPorcao=mpr?parseFloat(mpr[1].replace(',','.')):0;
+    modal('Rótulo lido','Valor energético: <b>'+kcalPorcao+' kcal</b>'+(protPorcao?' e <b>'+protPorcao+' g de proteína</b>':'')+' por porção'+(gPorcao?' de '+gPorcao+' g':'')+'. Quanto você comeu?',
+      '<label>Nome do alimento</label><input type="text" id="ocr-nome" placeholder="Ex.: Biscoito integral">'+
+      '<label>Quantidade de porções</label><input type="number" id="ocr-qtd" inputmode="decimal" step="0.5" value="1">'+
+      '<div class="row" style="margin-top:12px"><button class="btn-ghost" onclick="fechaModal()">Cancelar</button><button class="btn-acc" id="ocr-ok">Adicionar</button></div>');
+    $('ocr-ok').onclick=()=>{
+      const q=parseFloat($('ocr-qtd').value)||1,nm=$('ocr-nome').value.trim()||'Item do rótulo';
+      dia().c.push({nome:nm,det:q+' porção(ões)'+(gPorcao?' de '+gPorcao+' g':''),kcal:Math.round(kcalPorcao*q),prot:Math.round(protPorcao*q*10)/10});
+      save();render();fechaModal()}}
+  catch(err){modal('Erro no OCR','Não foi possível processar a imagem'+(navigator.onLine?'':' (sem internet)')+'. Digite o item manualmente.',
+    '<button class="btn-ghost" style="width:100%" onclick="fechaModal()">Fechar</button>')}};
+function comprime(f){return new Promise(res=>{const img=new Image();
+  img.onload=()=>{const max=1400,esc=Math.min(1,max/Math.max(img.width,img.height));
+    const c=document.createElement('canvas');c.width=img.width*esc;c.height=img.height*esc;
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.9))};
+  img.src=URL.createObjectURL(f)})}
+function modal(t,txt,corpo){$('m-titulo').textContent=t;$('m-texto').innerHTML=txt;$('m-corpo').innerHTML=corpo;$('modal').classList.add('on')}
+function fechaModal(){$('modal').classList.remove('on')}
+$('modal').onclick=e=>{if(e.target.id==='modal')fechaModal()};
+
+/* ================= TREINOS ================= */
+$('treino-tipo').innerHTML=TREINOS.map((t,i)=>'<option value="'+i+'">'+t.n+'</option>').join('');
+$('treino-tipo').onchange=()=>{$('treino-kcal-row').style.display=TREINOS[+$('treino-tipo').value].met===0?'flex':'none'};
+$('btn-treino').onclick=()=>{
+  const t=TREINOS[+$('treino-tipo').value];
+  if(t.met===0){const v=parseFloat($('treino-kcal').value);
+    if(!(v>0)){alert('Informe as kcal do treino.');return}
+    dia().t.push({nome:'Treino (manual)',det:'',kcal:Math.round(v)});$('treino-kcal').value=''}
+  else{const min=parseFloat($('treino-min').value);
+    if(!(min>0)){alert('Informe os minutos.');return}
+    if(!S.perfil.peso){alert('Preencha seu peso no Perfil para calcular o gasto do treino.');return}
+    dia().t.push({nome:t.n,det:min+' min · MET '+t.met,kcal:kcalTreino(t.met,min)});$('treino-min').value=''}
+  save();render()};
+
+/* ================= PERFIL / CUSTOM / DADOS ================= */
+$('btn-perfil').onclick=()=>{
+  S.perfil={peso:parseFloat($('p-peso').value)||null,altura:parseFloat($('p-altura').value)||null,
+    idade:parseInt($('p-idade').value)||null,sexo:$('p-sexo').value,
+    fator:parseFloat($('p-fator').value),meta:parseInt($('p-meta').value)||0,metaProt:parseInt($('p-prot').value)||0};
+  save();render();alert('Perfil salvo.')};
+$('btn-custom').onclick=()=>{
+  const n=$('c-nome').value.trim(),k=parseFloat($('c-kcal').value),u=parseFloat($('c-porcao').value)||100;
+  const pr=parseFloat($('c-prot').value)||0;
+  if(!n||!(k>=0)){alert('Preencha nome e kcal por 100 g.');return}
+  S.custom.push({n,k,p:pr,u,l:'porção'});
+  $('c-nome').value='';$('c-kcal').value='';$('c-prot').value='';$('c-porcao').value='';save();render()};
+$('btn-export').onclick=()=>{
+  const blob=new Blob([JSON.stringify(S,null,1)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='saldo-kcal-backup-'+hojeKey()+'.json';a.click()};
+$('btn-import').onclick=()=>$('import-input').click();
+$('import-input').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  const r=new FileReader();r.onload=()=>{try{const p=JSON.parse(r.result);
+    if(!p.days)throw 0;S=p;save();render();alert('Backup importado.')}catch(_){alert('Arquivo inválido.')}};r.readAsText(f)};
+$('btn-limpar').onclick=()=>{if(confirm('Apagar TODOS os dados (perfil, histórico, alimentos)? Não dá pra desfazer.')){S={perfil:{peso:null,altura:null,idade:null,sexo:'M',fator:1.2,meta:-500},custom:[],days:{}};save();render()}};
+
+/* ================= NAV / RESET DIÁRIO ================= */
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');$(b.dataset.tab).classList.add('on');render()});
+let diaAtual=hojeKey();
+setInterval(()=>{if(hojeKey()!==diaAtual){diaAtual=hojeKey();render()}},30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&hojeKey()!==diaAtual){diaAtual=hojeKey();render()}});
+
+/* ================= SERVICE WORKER (offline no iPhone) ================= */
+if('serviceWorker' in navigator && location.protocol==='https:'){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+
+load();render();
+</script>
+</body>
+</html>
